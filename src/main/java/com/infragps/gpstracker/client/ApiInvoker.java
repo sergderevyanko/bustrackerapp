@@ -1,5 +1,7 @@
 package com.infragps.gpstracker.client;
 
+import android.os.AsyncTask;
+
 import com.android.volley.Cache;
 import com.android.volley.DefaultRetryPolicy;
 import com.android.volley.Network;
@@ -13,6 +15,7 @@ import com.android.volley.toolbox.HurlStack;
 import com.android.volley.toolbox.NoCache;
 import com.android.volley.toolbox.RequestFuture;
 import com.google.gson.JsonParseException;
+import com.infragps.gpstracker.client.model.Tracker;
 import com.infragps.gpstracker.client.request.DeleteRequest;
 import com.infragps.gpstracker.client.request.GetRequest;
 import com.infragps.gpstracker.client.request.PatchRequest;
@@ -179,7 +182,7 @@ public class ApiInvoker {
 
 
     public static void initializeInstance() {
-        initializeInstance(null, 0, null, 30);
+        initializeInstance(null, 0, null, 10);
     }
 
     public static void initializeInstance(Network network, int threadPoolSize, ResponseDelivery delivery, int connectionTimeout) {
@@ -263,10 +266,18 @@ public class ApiInvoker {
 
 
     public String invokeAPI(String host, String path, String method, List<Pair> queryParams, Object body, Map<String, String> headerParams, Map<String, String> formParams, String contentType, String[] authNames) throws ApiException, InterruptedException, ExecutionException, TimeoutException {
-        RequestFuture<String> future = RequestFuture.newFuture();
-        Request request = createRequest(host, path, method, queryParams, body, headerParams, formParams, contentType, future, future);
+        final RequestFuture<String> future = RequestFuture.newFuture();
+        Request request = createRequest(host, path, method, queryParams, body, headerParams, formParams, contentType, new Response.Listener<String>(){
+            @Override
+            public void onResponse(String response) {
+                return;
+            }
+        }, future);
+
         if(request != null) {
             mRequestQueue.add(request);
+//            httpAsyncTask.execute(future);
+//            return httpAsyncTask.get(connectionTimeout, TimeUnit.SECONDS);
             return future.get(connectionTimeout, TimeUnit.SECONDS);
         } else return "no data";
     }
@@ -413,5 +424,21 @@ public class ApiInvoker {
     public void stopQueue() {
         mRequestQueue.stop();
     }
+
+    AsyncTask<RequestFuture, Void, String> httpAsyncTask = new AsyncTask<RequestFuture, Void, String>() {
+        @Override
+        protected String doInBackground(RequestFuture... futures) {
+            try {
+                return (String) futures[0].get(getConnectionTimeout(), TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                e.printStackTrace();
+            } catch (ExecutionException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            return  "";
+        }
+    };
 }
 
